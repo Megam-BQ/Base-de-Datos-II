@@ -1,0 +1,428 @@
+USE QhatuPERU;
+GO
+--CONSULTA 1--
+SELECT
+    A.CodArticulo,
+    A.DescripcionArticulo,
+    CAST(A.StockActual * CAST(A.PrecioProveedor AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS ValorInventario
+FROM ARTICULO A;
+
+--CONSULTA 2--
+SELECT
+    SUM(CAST(A.StockActual * CAST(A.PrecioProveedor AS DECIMAL(18,2)) AS DECIMAL(18,2))) AS TotalMonetarioInventario
+FROM ARTICULO A;
+
+--CONSULTA 3--
+SELECT
+    L.CodLinea,
+    AVG(CAST(A.PrecioProveedor AS DECIMAL(18,2))) AS PrecioProveedorPromedio
+FROM ARTICULO A
+JOIN LINEA L ON A.CodLinea = L.CodLinea
+GROUP BY L.CodLinea;
+
+--CONSULTA 4--
+SELECT
+    COUNT(*) AS ArticulosDescontinuados
+FROM ARTICULO A
+WHERE A.Descontinuado = 1;
+
+--CONSULTA 5--
+SELECT
+    MAX(A.PrecioProveedor) AS PrecioMaximo,
+    MIN(A.PrecioProveedor) AS PrecioMinimo
+FROM ARTICULO A;
+
+--CONSULTA 6--
+SELECT
+    G.NumGuia,
+    SUM(CAST(GD.CantidadEnviada * CAST(GD.PrecioVenta AS DECIMAL(18,2)) AS DECIMAL(18,2))) AS ValorTotalEnviado
+FROM GUIA_DETALLE GD
+JOIN GUIA_ENVIO G ON GD.NumGuia = G.NumGuia
+GROUP BY G.NumGuia;
+
+--CONSULTA 7--
+SELECT
+    A.CodArticulo,
+    SUM(OD.CantidadSolicitada) AS TotalSolicitado
+FROM ORDEN_DETALLE OD
+JOIN ARTICULO A ON OD.CodArticulo = A.CodArticulo
+GROUP BY A.CodArticulo;
+
+--CONSULTA 8--
+SELECT
+    A.CodArticulo,
+    COUNT(DISTINCT OD.NumOrden) AS OrdenesUnicas
+FROM ORDEN_DETALLE OD
+JOIN ARTICULO A ON OD.CodArticulo = A.CodArticulo
+GROUP BY A.CodArticulo;
+
+--CONSULTA 9--
+SELECT
+    AVG(DATEDIFF(DAY, O.FechaOrden, O.FechaIngreso)) AS PromedioDiasOrden
+FROM ORDEN_COMPRA O
+WHERE O.FechaIngreso IS NOT NULL;
+
+--CONSULTA 10 --
+SELECT
+    G.CodTransportista,
+    SUM(GD.CantidadEnviada) AS TotalCantidadEnviada
+FROM GUIA_DETALLE GD
+JOIN GUIA_ENVIO G ON GD.NumGuia = G.NumGuia
+GROUP BY G.CodTransportista;
+
+--CONSULTA 11 --
+SELECT L.NomLinea, COUNT(A.CodArticulo) AS CantArticulos
+FROM LINEA L
+JOIN ARTICULO A ON L.CodLinea = A.CodLinea
+GROUP BY L.NomLinea;
+
+--CONSULTA 12 --
+SELECT CodLinea, SUM(StockActual) AS StockTotal
+FROM ARTICULO
+GROUP BY CodLinea;
+
+--CONSULTA 13 --
+SELECT NumOrden, SUM(PrecioCompra * CantidadSolicitada) AS CostoTotal
+FROM ORDEN_DETALLE
+GROUP BY NumOrden;
+
+--CONSULTA 14 --
+SELECT NumGuia, AVG(CantidadEnviada) AS PromedioEnviado
+FROM GUIA_DETALLE
+GROUP BY NumGuia;
+
+--CONSULTA 15 --
+SELECT Ciudad, COUNT(*) AS CantProveedores
+FROM PROVEEDOR
+GROUP BY Ciudad;
+
+--CONSULTA 16 --
+SELECT CONVERT(DATE, FechaOrden) AS Fecha, COUNT(*) AS NumOrdenes
+FROM ORDEN_COMPRA
+GROUP BY CONVERT(DATE, FechaOrden);
+
+--CONSULTA 17 --
+SELECT GE.CodTienda, SUM(GD.CantidadEnviada * GD.PrecioVenta) AS TotalEnviado
+FROM GUIA_ENVIO GE
+JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+GROUP BY GE.CodTienda;
+
+--CONSULTA 18 --
+SELECT A.CodArticulo, A.DescripcionArticulo, A.StockActual, A.CodLinea
+FROM ARTICULO A
+JOIN (
+    SELECT CodLinea, AVG(StockActual) AS PromedioStock
+    FROM ARTICULO
+    GROUP BY CodLinea
+) P ON A.CodLinea = P.CodLinea
+WHERE A.StockActual < P.PromedioStock;
+
+--CONSULTA 19 --
+SELECT P.CodProveedor, P.NomProveedor, COUNT(A.CodArticulo) AS CantArticulos
+FROM PROVEEDOR P
+JOIN ARTICULO A ON P.CodProveedor = A.CodProveedor
+GROUP BY P.CodProveedor, P.NomProveedor;
+
+--CONSULTA 20 --
+SELECT Estado, SUM(CantidadSolicitada) AS TotalSolicitado
+FROM ORDEN_DETALLE
+GROUP BY Estado;
+
+--CONSULTA 21 --
+SELECT CodLinea, CodArticulo, DescripcionArticulo, PrecioProveedor,
+       ROW_NUMBER() OVER (PARTITION BY CodLinea ORDER BY PrecioProveedor DESC) AS Posicion
+FROM ARTICULO;
+
+--CONSULTA 22 --
+SELECT NumOrden,
+       SUM(PrecioCompra * CantidadSolicitada) AS CostoTotal,
+       RANK() OVER (ORDER BY SUM(PrecioCompra * CantidadSolicitada) DESC) AS RankCosto
+FROM ORDEN_DETALLE
+GROUP BY NumOrden;
+
+--CONSULTA 23 --
+SELECT CONVERT(DATE, GE.FechaSalida) AS Fecha,
+       SUM(GD.CantidadEnviada * GD.PrecioVenta) AS TotalDia,
+       SUM(SUM(GD.CantidadEnviada * GD.PrecioVenta)) 
+         OVER (ORDER BY CONVERT(DATE, GE.FechaSalida)) AS Acumulado
+FROM GUIA_ENVIO GE
+JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+GROUP BY CONVERT(DATE, GE.FechaSalida)
+ORDER BY Fecha;
+
+--CONSULTA 24 --
+SELECT CodArticulo, CodLinea, StockActual,
+       AVG(StockActual) OVER (PARTITION BY CodLinea ORDER BY CodArticulo ROWS 2 PRECEDING) AS PromedioMovil
+FROM ARTICULO;
+
+--CONSULTA 25 --
+SELECT CodProveedor, CodArticulo, DescripcionArticulo, PrecioProveedor,
+       LAG(PrecioProveedor) OVER (PARTITION BY CodProveedor ORDER BY CodArticulo) AS PrecioAnterior
+FROM ARTICULO;
+
+--CONSULTA 26 --
+SELECT CodArticulo, CodLinea, DescripcionArticulo,
+       COUNT(*) OVER (PARTITION BY CodLinea) AS CantidadPorLinea
+FROM ARTICULO;
+
+--CONSULTA 27 --
+SELECT P.CodProveedor, P.NomProveedor,
+       SUM(A.PrecioProveedor * A.StockActual) AS MontoProveedor,
+       SUM(SUM(A.PrecioProveedor * A.StockActual)) OVER () AS TotalGeneral,
+       100.0 * SUM(A.PrecioProveedor * A.StockActual) 
+           / SUM(SUM(A.PrecioProveedor * A.StockActual)) OVER () AS PorcentajeDelTotal
+FROM PROVEEDOR P
+JOIN ARTICULO A ON P.CodProveedor = A.CodProveedor
+GROUP BY P.CodProveedor, P.NomProveedor;
+
+--CONSULTA 28 --
+SELECT *
+FROM (
+    SELECT CodLinea, CodArticulo, DescripcionArticulo, PrecioProveedor,
+           ROW_NUMBER() OVER (PARTITION BY CodLinea ORDER BY PrecioProveedor DESC) AS Pos
+    FROM ARTICULO
+) AS T
+WHERE Pos <= 3;
+
+--CONSULTA 29 --
+SELECT T.CodTransportista, T.NomTransportista,
+       SUM(GD.CantidadEnviada * GD.PrecioVenta) AS TotalEnviado,
+       DENSE_RANK() OVER (ORDER BY SUM(GD.CantidadEnviada * GD.PrecioVenta) DESC) AS RankEnvio
+FROM TRANSPORTISTA T
+JOIN GUIA_ENVIO GE ON T.CodTransportista = GE.CodTransportista
+JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+GROUP BY T.CodTransportista, T.NomTransportista;
+
+--CONSULTA 30 --
+SELECT GE.CodTienda, GE.NumGuia,
+       SUM(GD.CantidadEnviada * GD.PrecioVenta) AS TotalGuia,
+       SUM(SUM(GD.CantidadEnviada * GD.PrecioVenta))
+           OVER (PARTITION BY GE.CodTienda ORDER BY GE.FechaSalida) AS AcumuladoPorTienda
+FROM GUIA_ENVIO GE
+JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+GROUP BY GE.CodTienda, GE.NumGuia, GE.FechaSalida
+ORDER BY GE.CodTienda, GE.FechaSalida;
+
+--CONSULTA 31 --
+SELECT *
+FROM (
+    SELECT CONVERT(DATE, GE.FechaSalida) AS Fecha, GE.CodTienda,
+           GD.CantidadEnviada * GD.PrecioVenta AS Monto
+    FROM GUIA_ENVIO GE
+    JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+) AS Src
+PIVOT (
+    SUM(Monto)
+    FOR CodTienda IN ([1], [2])
+) AS Pivote;
+
+--CONSULTA 32 --
+SELECT *
+FROM (
+    SELECT GD.CodArticulo, GE.CodTienda, GD.CantidadEnviada
+    FROM GUIA_ENVIO GE
+    JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+) AS Src
+PIVOT (
+    SUM(CantidadEnviada)
+    FOR CodTienda IN ([1], [2], [3])
+) AS Pivote;
+
+--CONSULTA 33 --
+SELECT *
+FROM (
+    SELECT FORMAT(GE.FechaSalida, 'yyyyMM') AS AñoMes,
+           GE.CodTienda,
+           GD.CantidadEnviada * GD.PrecioVenta AS Monto
+    FROM GUIA_ENVIO GE
+    JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+) AS Src
+PIVOT (
+    SUM(Monto)
+    FOR CodTienda IN ([1], [2], [3])
+) AS Pivote;
+
+--CONSULTA 34 --
+SELECT *
+FROM (
+    SELECT CodArticulo, Estado, CantidadSolicitada
+    FROM ORDEN_DETALLE
+) AS Src
+PIVOT (
+    SUM(CantidadSolicitada)
+    FOR Estado IN ([Pendiente], [Recibido], [Anulado])
+) AS Pivote;
+
+--CONSULTA 35 --
+SELECT *
+FROM (
+    SELECT Presentacion, CodLinea
+    FROM ARTICULO
+) AS Src
+PIVOT (
+    COUNT(CodLinea)
+    FOR Presentacion IN ([Caja], [Unidad], [Paquete])
+) AS Pivote;
+
+--CONSULTA 36 --
+DECLARE @cols NVARCHAR(MAX);
+DECLARE @sql NVARCHAR(MAX);
+
+SELECT @cols = STRING_AGG(QUOTENAME(CodTienda), ',')
+FROM TIENDA;
+
+SET @sql = '
+SELECT *
+FROM (
+    SELECT GE.CodTienda, GD.CodArticulo, GD.CantidadEnviada
+    FROM GUIA_ENVIO GE
+    JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+) AS Src
+PIVOT (
+    SUM(CantidadEnviada)
+    FOR CodTienda IN (' + @cols + ')
+) AS Pivote;
+';
+
+EXEC(@sql);
+
+--CONSULTA 37 --
+SELECT *
+FROM (
+    SELECT FORMAT(GE.FechaSalida, 'MM-yyyy') AS Mes, GE.CodTransportista,
+           GD.CantidadEnviada * GD.PrecioVenta AS Monto
+    FROM GUIA_ENVIO GE
+    JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+) AS Src
+PIVOT (
+    SUM(Monto)
+    FOR CodTransportista IN ([1], [2], [3])
+) AS Pivote;
+
+--CONSULTA 38 --
+SELECT *
+FROM (
+    SELECT P.CodProveedor,
+           CASE 
+               WHEN COUNT(A.CodArticulo) OVER (PARTITION BY P.CodProveedor) < 5 THEN 'Pocos'
+               WHEN COUNT(A.CodArticulo) OVER (PARTITION BY P.CodProveedor) BETWEEN 5 AND 10 THEN 'Medios'
+               ELSE 'Muchos' 
+           END AS Rango
+    FROM PROVEEDOR P
+    JOIN ARTICULO A ON P.CodProveedor = A.CodProveedor
+) AS Src
+PIVOT (
+    COUNT(CodProveedor)
+    FOR Rango IN ([Pocos], [Medios], [Muchos])
+) AS Pivote;
+
+--CONSULTA 39 --
+SELECT *
+FROM (
+    SELECT GD.CodArticulo, YEAR(GE.FechaSalida) AS Año,
+           GD.CantidadEnviada * GD.PrecioVenta AS Monto
+    FROM GUIA_ENVIO GE
+    JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+) AS Src
+PIVOT (
+    SUM(Monto)
+    FOR Año IN ([2023], [2024], [2025])
+) AS Pivote;
+
+--CONSULTA 40 --
+SELECT 
+    FORMAT(FechaSalida, 'MM-yyyy') AS Mes,
+    SUM(CASE WHEN CodTienda = 1 THEN GD.CantidadEnviada * GD.PrecioVenta ELSE 0 END) AS Tienda_1,
+    SUM(CASE WHEN CodTienda = 2 THEN GD.CantidadEnviada * GD.PrecioVenta ELSE 0 END) AS Tienda_2,
+    SUM(CASE WHEN CodTienda = 3 THEN GD.CantidadEnviada * GD.PrecioVenta ELSE 0 END) AS Tienda_3
+FROM GUIA_ENVIO GE
+JOIN GUIA_DETALLE GD ON GE.NumGuia = GD.NumGuia
+GROUP BY FORMAT(FechaSalida, 'MM-yyyy');
+
+--CONSULTA 41 --
+SELECT CodLinea, COUNT(*) AS CantArticulos
+FROM ARTICULO
+GROUP BY CodLinea
+HAVING COUNT(*) > 10;
+
+--CONSULTA 42 --
+SELECT 
+    A.CodProveedor,
+    SUM(OD.PrecioCompra * OD.CantidadSolicitada) AS MontoTotal
+FROM ORDEN_DETALLE OD
+JOIN ARTICULO A ON OD.CodArticulo = A.CodArticulo
+GROUP BY A.CodProveedor
+HAVING SUM(OD.PrecioCompra * OD.CantidadSolicitada) > 50000;
+
+
+--CONSULTA 43 --
+SELECT 
+    G.CodTienda,
+    AVG(GD.CantidadEnviada) AS PromedioGuia
+FROM GUIA_ENVIO G
+JOIN GUIA_DETALLE GD ON G.NumGuia = GD.NumGuia
+GROUP BY G.CodTienda
+HAVING AVG(GD.CantidadEnviada) > 1000;
+
+
+--CONSULTA 44 --
+SELECT 
+    CodArticulo, 
+    SUM(CantidadSolicitada) AS TotalSolicitado
+FROM ORDEN_DETALLE
+GROUP BY CodArticulo
+HAVING SUM(CantidadSolicitada) > 500;
+
+--CONSULTA 45 --
+SELECT 
+    CodTransportista, 
+    COUNT(NumGuia) AS CantGuias
+FROM GUIA_ENVIO
+GROUP BY CodTransportista
+HAVING COUNT(NumGuia) >= 5;
+
+--CONSULTA 46 --
+SELECT 
+    CodLinea,
+    SUM(StockActual) AS StockTotal,
+    SUM(StockMinimo) AS StockMinimoTotal
+FROM ARTICULO
+GROUP BY CodLinea
+HAVING SUM(StockActual) < SUM(StockMinimo);
+
+--CONSULTA 47 --
+SELECT 
+    CodProveedor, 
+    MAX(PrecioProveedor) AS PrecioMaximo
+FROM ARTICULO
+GROUP BY CodProveedor
+HAVING MAX(PrecioProveedor) > 100;
+
+--CONSULTA 48 --
+SELECT 
+    G.CodTienda,
+    AVG(GD.CantidadEnviada) AS PromedioEnviado,
+    COUNT(DISTINCT G.NumGuia) AS CantGuias
+FROM GUIA_ENVIO G
+JOIN GUIA_DETALLE GD ON G.NumGuia = GD.NumGuia
+GROUP BY G.CodTienda
+HAVING AVG(GD.CantidadEnviada) < 50 
+   AND COUNT(DISTINCT G.NumGuia) >= 10;
+
+--CONSULTA 49 --
+SELECT 
+    CodLinea,
+    (MAX(PrecioProveedor) - MIN(PrecioProveedor)) AS DiferenciaPrecio
+FROM ARTICULO
+GROUP BY CodLinea
+HAVING (MAX(PrecioProveedor) - MIN(PrecioProveedor)) > 20;
+
+--CONSULTA 50 --
+SELECT 
+    CodProveedor,
+    COUNT(*) AS CantArticulos,
+    AVG(StockActual) AS PromedioStock
+FROM ARTICULO
+GROUP BY CodProveedor
+HAVING AVG(StockActual) < 20 
+   AND COUNT(*) > 5;
